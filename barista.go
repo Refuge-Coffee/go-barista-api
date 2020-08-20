@@ -5,6 +5,7 @@ import (
 	"log"
 	"io/ioutil"
 	"net/http"
+	"html/template"
 )
 
 type Order struct {
@@ -39,18 +40,18 @@ func loadOrder(name string) (*Order, error) {
 	return &Order{Name: name, Details: details}, nil
 }
 
+func renderTemplate(w http.ResponseWriter, tmpl string, o *Order) {
+	t, _ := template.ParseFiles(tmpl + ".html")
+	t.Execute(w, o)
+}
+
 func editHandler(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Path[len("/edit/"):]
 	p, err := loadOrder(name)
 	if err != nil {
 			p = &Order{Name: name}
 	}
-	fmt.Fprintf(w, "<h1>Editing %s</h1>"+
-			"<form action=\"/save/%s\" method=\"POST\">"+
-			"<textarea name=\"details\">%s</textarea><br>"+
-			"<input type=\"submit\" value=\"Save\">"+
-			"</form>",
-			p.Name, p.Name, p.Details)
+	renderTemplate(w, "edit", p)
 }
 
 func saveHandler(w http.ResponseWriter, r *http.Request) {
@@ -64,5 +65,5 @@ func saveHandler(w http.ResponseWriter, r *http.Request) {
 func viewHandler(w http.ResponseWriter, r *http.Request) {
 	name := r.URL.Path[len("/view/"):]
 	p, _ := loadOrder(name)
-	fmt.Fprintf(w, "<h1>%s</h1><h4>%s</h4>", p.Name, p.Details)
+  renderTemplate(w, "view", p)
 }
