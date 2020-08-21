@@ -6,7 +6,11 @@ import (
 	"io/ioutil"
 	"net/http"
 	"html/template"
+	"regexp"
 )
+
+var templates = template.Must(template.ParseFiles("edit.html", "view.html"))
+var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
 type Order struct {
 	Name string
@@ -24,10 +28,9 @@ func handler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/", handler)
-	http.HandleFunc("/view/", viewHandler)
-	http.HandleFunc("/edit/", editHandler)
-  http.HandleFunc("/save/", saveHandler)
+	http.HandleFunc("/view/", makeHandler(viewHandler))
+  http.HandleFunc("/edit/", makeHandler(editHandler))
+  http.HandleFunc("/save/", makeHandler(saveHandler))
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }
 
@@ -41,12 +44,24 @@ func loadOrder(name string) (*Order, error) {
 }
 
 func renderTemplate(w http.ResponseWriter, tmpl string, o *Order) {
-	t, _ := template.ParseFiles(tmpl + ".html")
-	t.Execute(w, o)
+	err := templates.ExecuteTemplate(w, tmpl + ".html", o)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
-func editHandler(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Path[len("/edit/"):]
+func makeHandler(fn func (http.ResponseWriter, *http.Request, string)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		m := validPath.FindStringSubmatch(r.URL.Path)
+        if m == nil {
+            http.NotFound(w, r)
+            return
+        }
+    fn(w, r, m[2])
+	}
+}
+
+func editHandler(w http.ResponseWriter, r *http.Request, name string) {
 	p, err := loadOrder(name)
 	if err != nil {
 			p = &Order{Name: name}
@@ -54,16 +69,22 @@ func editHandler(w http.ResponseWriter, r *http.Request) {
 	renderTemplate(w, "edit", p)
 }
 
-func saveHandler(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Path[len("/save/"):]
+func saveHandler(w http.ResponseWriter, r *http.Request, name string) {
 	details := r.FormValue("details")
 	p := &Order{Name: name, Details: []byte(details)}
-	p.save()
+	err := p.save()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	http.Redirect(w, r, "/view/"+name, http.StatusFound)
 }
 
-func viewHandler(w http.ResponseWriter, r *http.Request) {
-	name := r.URL.Path[len("/view/"):]
-	p, _ := loadOrder(name)
+func viewHandler(w http.ResponseWriter, r *http.Request, name string) {
+	p, err := loadOrder(name)
+	if err != nil {
+		http.Redirect(w, r, "/edit/"+name, http.StatusFound)
+		return
+}
   renderTemplate(w, "view", p)
 }
