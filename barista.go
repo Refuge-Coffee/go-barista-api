@@ -19,7 +19,7 @@ type Order struct {
 }
 
 func (o *Order) save() error {
-	filename := o.Name + ".txt"
+	filename := "data/" + o.Name + ".txt"
 	return ioutil.WriteFile(filename, o.Details, 0600)
 }
 
