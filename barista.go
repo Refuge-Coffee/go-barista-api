@@ -9,7 +9,7 @@ import (
 	"regexp"
 )
 
-var templates = template.Must(template.ParseFiles("edit.html", "view.html"))
+var templates = template.Must(template.ParseGlob("templates/*.html"))
 var validPath = regexp.MustCompile("^/(edit|save|view)/([a-zA-Z0-9]+)$")
 
 type Order struct {
@@ -35,7 +35,7 @@ func main() {
 }
 
 func loadOrder(name string) (*Order, error) {
-	filename := name + ".txt"
+	filename := "data/" + name + ".txt"
 	details, err := ioutil.ReadFile(filename)
 	if err != nil {
 			return nil, err
